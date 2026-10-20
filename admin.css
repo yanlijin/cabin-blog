@@ -541,6 +541,88 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); cu
 .site-card .field { margin-bottom: 15px; }
 .site-card .field-label { color: var(--muted); }
 
+/* ---------------- 照片 ---------------- */
+
+.photo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.photo-head h2 {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  margin: 0 0 4px;
+}
+.photo-head p.hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dim);
+  max-width: 520px;
+}
+.photo-actions { flex: none; margin-top: 4px; }
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.photo-tile {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel);
+  position: relative;
+}
+.photo-tile a { display: block; }
+.photo-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: #0d1214;
+}
+.photo-tile figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px 12px;
+}
+.photo-tile figcaption b {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photo-tile figcaption span {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.photo-tile .btn.tiny {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.photo-tile:hover .btn.tiny { opacity: 1; }
+.photo-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
 /* ---------------- 源文件 ---------------- */
 
 .raw-grid {
@@ -614,6 +696,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); cu
   .split { grid-template-columns: 240px minmax(0, 1fr); }
   .body-split, .raw-grid { grid-template-columns: 1fr; }
   .content-area, .preview { min-height: 340px; height: 340px; }
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
 @media (max-width: 860px) {
@@ -633,6 +716,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); cu
   .actions .btn { flex: 1; text-align: center; }
   .actions-fill { display: none; }
   .content-area, .preview { min-height: 300px; height: 300px; }
+  .photo-head { flex-direction: column; }
+  .photo-actions { margin-top: 0; }
+  .photo-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+  .photo-tile .btn.tiny { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -271,11 +271,141 @@ async function main() {
     if (items5 !== items3) throw new Error("切走后应丢掉空白新草稿，实际：" + items5);
     if (leftover !== 0) throw new Error("空白新草稿不应留在本地存储，实际残留 " + leftover);
 
+    // ---------- 9c. 照片：上传 ----------
+    await evaluate("document.querySelector('[data-tab=photos]').click();");
+    await sleep(300);
+    const emptyState = await evaluate("document.getElementById('photoGrid').textContent");
+    console.log("PASS 22 照片页签载入：" + emptyState.trim());
+
+    // 页面里画两张小图 → File → 塞进文件输入框 → 触发 change
+    await evaluate(`
+      (async function () {
+        var files = [];
+        for (var i = 0; i < 2; i++) {
+          var c = document.createElement('canvas');
+          c.width = 320; c.height = 240;
+          var x = c.getContext('2d');
+          x.fillStyle = i ? '#2e7d32' : '#c62828'; x.fillRect(0, 0, 320, 240);
+          x.fillStyle = '#fff'; x.font = '36px sans-serif';
+          x.fillText('P' + (i + 1), 130, 130);
+          var blob = await new Promise(function (r) { c.toBlob(r, 'image/jpeg', 0.9); });
+          files.push(new File([blob], '照片' + (i + 1) + '.jpg', { type: 'image/jpeg' }));
+        }
+        var dt = new DataTransfer();
+        files.forEach(function (f) { dt.items.add(f); });
+        var inp = document.getElementById('photoInput');
+        inp.files = dt.files;
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        return dt.files.length;
+      })();
+    `);
+    await waitFor("document.querySelectorAll('.photo-tile').length === 2", 20000, "照片网格出现两张");
+    const photoCount = await evaluate("document.getElementById('photoCount').textContent");
+    console.log("PASS 23 上传两张照片成功：" + photoCount);
+
+    // 校验写出的照片文件是二进制 JPEG，photos.js 清单可解析
+    const photosLog = await (await fetch(API + "/__log")).json();
+    const photoPutCount = photosLog.filter((l) => l.file.startsWith("photos/photo-")).length;
+    const jpgDir = path.join(OUT, "photos");
+    const jpgFiles = fs.existsSync(jpgDir) ? fs.readdirSync(jpgDir).filter((f) => f.endsWith(".jpg")) : [];
+    const jpegOk = jpgFiles.length === 2 && fs.readFileSync(path.join(jpgDir, jpgFiles[0])).slice(0, 2).toString("hex") === "ffd8";
+    const manifestOut = fs.readFileSync(path.join(OUT, "photos.js"), "utf8");
+    const sandbox3 = {};
+    new Function("window", manifestOut)(sandbox3);
+    const manifestCount = (sandbox3.PHOTOS || []).length;
+    console.log("PASS 24 二进制油画检查：JPEG 文件 " + jpgFiles.length + " 个，魔数 ffd8 = " + jpegOk + "；photos.js 清单 " + manifestCount + " 条，可解析");
+    if (photoPutCount !== 2) throw new Error("应有 2 次照片 PUT，实际 " + photoPutCount);
+    if (jpgFiles.length !== 2 || !jpegOk) throw new Error("照片应原样以 JPEG 存到仓库，实际 " + JSON.stringify(jpgFiles));
+    if (manifestCount !== 2) throw new Error("photos.js 清单应有 2 条，实际 " + manifestCount);
+
+    // ---------- 9d. 博客相册页渲染 + 灯箱 ----------
+    // blog 页加载的 photos.js 是静态空清单；用 Fetch 域拦截该请求，
+    // 把刚才上传的清单作为 photos.js 返回，模拟发布后的相册
+    await send("Fetch.enable", { patterns: [{ urlPattern: "*photos.js", requestStage: "Request" }] });
+    const serveManifestSource = "window.PHOTOS = " + JSON.stringify(sandbox3.PHOTOS) + ";";
+    let fetchActive = true;
+    const fetchH = (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.method === "Fetch.requestPaused" && m.params.request.url.indexOf("photos.js") !== -1) {
+        if (!fetchActive || m.params.request.url.indexOf("127.0.0.1:8123") !== -1) {
+          // 只拦博客静态页的 photos.js；API 的请求放行（不满足则继续原请求）
+          ws.send(JSON.stringify({ id: ++msgId, method: "Fetch.continueRequest", params: { requestId: m.params.requestId } }));
+          return;
+        }
+        const body = Buffer.from(serveManifestSource).toString("base64");
+        ws.send(JSON.stringify({
+          id: ++msgId,
+          method: "Fetch.fulfillRequest",
+          params: {
+            requestId: m.params.requestId,
+            responseCode: 200,
+            responseHeaders: [{ name: "Content-Type", value: "application/javascript" }],
+            body
+          }
+        }));
+      }
+    };
+    ws.addEventListener("message", fetchH);
+    await send("Page.navigate", { url: BASE + "/#/photos" });
+    await sleep(1500);
+    const navHasPhotos = await evaluate("!!document.querySelector('[data-nav=photos]')");
+    const gridCount = await evaluate("document.querySelectorAll('.photo-item').length");
+    await evaluate("document.querySelector('.photo-item').click();");
+    await sleep(500);
+    const lbOn = await evaluate("!!document.getElementById('lightbox') && document.getElementById('lightbox').classList.contains('on')");
+    const lbCap = await evaluate("document.getElementById('lightbox') ? document.getElementById('lightbox').querySelector('.lb-cap').textContent : ''");
+    console.log("PASS 25 相册页：导航链接 = " + navHasPhotos + "，网格 " + gridCount + " 张，灯箱打开 = " + lbOn + "，说明：" + lbCap);
+    if (!navHasPhotos) throw new Error("博客导航应有「相册」链接");
+    if (gridCount !== 2) throw new Error("相册网格应有 2 张，实际 " + gridCount);
+    if (!lbOn) throw new Error("点照片应打开灯箱");
+
+    let lbShot = await send("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(OUT, "blog-photos.png"), Buffer.from(lbShot.data, "base64"));
+    await evaluate("document.getElementById('lightbox') && document.getElementById('lightbox').querySelector('.lb-close').click();");
+
+    // 相册页验证完毕，关闭拦截，避免影响后面写作台的 API 请求
+    fetchActive = false;
+    ws.removeEventListener("message", fetchH);
+    await send("Fetch.disable");
+
+    // ---------- 9e. 照片：删除 ----------
+    await send("Page.navigate", { url: BASE + "/admin?api=" + encodeURIComponent(API) });
+    await waitFor("!!document.getElementById('tokenInput')", 10000, "登录页重新加载");
+    await evaluate("document.getElementById('tokenInput').value='ghp_testtoken'; document.getElementById('enterBtn').click();");
+    await waitFor("!document.getElementById('desk').hidden", 15000, "回到写作台");
+    await sleep(500);
+    await evaluate("document.querySelector('[data-tab=photos]').click();");
+    await sleep(400);
+    await evaluate("window.confirm = function () { return true; };");
+    await evaluate("document.querySelector('.photo-tile [data-del]').click();");
+    await waitFor("document.querySelectorAll('.photo-tile').length === 1", 15000, "删除后剩一张");
+    const delLog = await (await fetch(API + "/__log")).json();
+    const delCount = delLog.filter((l) => l.deleted).length;
+    const manifestOut2 = fs.readFileSync(path.join(OUT, "photos.js"), "utf8");
+    const sandbox4 = {};
+    new Function("window", manifestOut2)(sandbox4);
+    const manifestCount2 = (sandbox4.PHOTOS || []).length;
+    const jpgLeft = fs.existsSync(jpgDir) ? fs.readdirSync(jpgDir).filter((f) => f.endsWith(".jpg")).length : 0;
+    console.log("PASS 26 删除：DELETE 请求 " + delCount + " 次，清单剩 " + manifestCount2 + " 条，照片文件剩 " + jpgLeft + " 个");
+    if (delCount !== 1) throw new Error("应有 1 次 DELETE，实际 " + delCount);
+    if (manifestCount2 !== 1) throw new Error("删除后清单应有 1 条，实际 " + manifestCount2);
+    if (jpgLeft !== 1) throw new Error("删除后仓库照片文件应剩 1 个，实际 " + jpgLeft);
+
     // ---------- 10. 截图 ----------
+    await send("Page.navigate", { url: BASE + "/admin?api=" + encodeURIComponent(API) });
+    await waitFor("!!document.getElementById('tokenInput')", 10000, "登录页重新加载");
+    await evaluate("document.getElementById('tokenInput').value='ghp_testtoken'; document.getElementById('enterBtn').click();");
+    await waitFor("!document.getElementById('desk').hidden", 15000, "重新进入写作台");
+    await sleep(400);
     await evaluate("document.querySelector('[data-tab=posts]').click();");
     await sleep(400);
     let shot = await send("Page.captureScreenshot", { format: "png" });
     fs.writeFileSync(path.join(OUT, "admin-posts.png"), Buffer.from(shot.data, "base64"));
+
+    await evaluate("document.querySelector('[data-tab=photos]').click();");
+    await sleep(300);
+    shot = await send("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(OUT, "admin-photos.png"), Buffer.from(shot.data, "base64"));
 
     await evaluate("document.querySelector('[data-tab=site]').click();");
     await sleep(300);
@@ -302,13 +432,13 @@ async function main() {
     shot = await send("Page.captureScreenshot", { format: "png" });
     fs.writeFileSync(path.join(OUT, "admin-mobile.png"), Buffer.from(shot.data, "base64"));
 
-    console.log("\nPASS 22 截图已保存");
+    console.log("\nPASS 27 截图已保存");
 
     if (consoleErrors.length) {
       console.log("\n!! 页面 JS 异常：");
       consoleErrors.forEach((e) => console.log("   " + e));
     } else {
-      console.log("PASS 23 页面无 JS 异常");
+      console.log("PASS 28 页面无 JS 异常");
     }
 
     console.log("\n全部通过 ✅");

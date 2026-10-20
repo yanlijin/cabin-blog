@@ -28,6 +28,7 @@
   var KEY_DRAFTS = "cabin-blog.drafts";
   var FILE_POSTS = "posts.js";
   var FILE_SITE = "site.js";
+  var FILE_PHOTOS = "photos.js";
 
   /* ---------------- 状态 ---------------- */
 
@@ -35,8 +36,9 @@
     token: "",
     posts: [],          // 已发布到 GitHub 的文章
     site: {},           // 已发布的站点配置
-    sha: { posts: "", site: "" },
-    rawText: { posts: "", site: "" },
+    photos: [],         // 已发布的照片清单（photos.js）
+    sha: { posts: "", site: "", photos: "" },
+    rawText: { posts: "", site: "", photos: "" },
     selected: null,
     saving: false
   };
@@ -147,8 +149,13 @@
     return { text: b64decode(j.content), sha: j.sha };
   }
 
-  async function writeFile(path, text, message, sha) {
-    var body = { message: message, content: b64encode(text), branch: CONFIG.branch };
+  // isBase64=true 时 content 已经是 base64（写二进制照片用），不用再编码
+  async function writeFile(path, text, message, sha, isBase64) {
+    var body = {
+      message: message,
+      content: isBase64 ? text : b64encode(text),
+      branch: CONFIG.branch
+    };
     if (sha) body.sha = sha;
 
     var res = await fetch(
@@ -158,6 +165,33 @@
     if (!res.ok) throw new Error(await apiError(res));
     var j = await res.json();
     return j.content ? j.content.sha : "";
+  }
+
+  // 二进制写入：content 已经是 base64 原样提交（GitHub contents API 只认 base64）
+  async function writeBinary(path, base64, message, sha) {
+    return writeFile(path, base64, message, sha, true);
+  }
+  async function getSha(path) {
+    var res = await fetch(
+      API + "/repos/" + CONFIG.owner + "/" + CONFIG.repo + "/contents/" + path +
+      "?ref=" + encodeURIComponent(CONFIG.branch),
+      { headers: headers(), cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(await apiError(res));
+    var j = await res.json();
+    return j.sha;
+  }
+
+  async function deleteFile(path, sha, message) {
+    var res = await fetch(
+      API + "/repos/" + CONFIG.owner + "/" + CONFIG.repo + "/contents/" + path,
+      {
+        method: "DELETE",
+        headers: headers(),
+        body: JSON.stringify({ message: message, sha: sha, branch: CONFIG.branch })
+      }
+    );
+    if (!res.ok) throw new Error(await apiError(res));
   }
 
   /* ---------------- 解析数据文件 ---------------- */
@@ -180,6 +214,16 @@
       throw new Error("site.js 有语法错误，无法解析：" + e.message);
     }
     return sandbox.SITE && typeof sandbox.SITE === "object" ? sandbox.SITE : {};
+  }
+
+  function parsePhotos(text) {
+    var sandbox = {};
+    try {
+      new Function("window", text)(sandbox);
+    } catch (e) {
+      throw new Error("photos.js 有语法错误，无法解析：" + e.message);
+    }
+    return Array.isArray(sandbox.PHOTOS) ? sandbox.PHOTOS : [];
   }
 
   /* ---------------- 序列化回 JS 文件 ---------------- */
@@ -254,6 +298,25 @@
       "// ============================================================\n" +
       "window.SITE = " + obj(site, 0) + ";\n"
     );
+  }
+
+  function renderPhotos(photos) {
+    var lines = [];
+    lines.push("// ============================================================");
+    lines.push("//  照片清单（在 /admin 写作台的「照片」里上传管理）");
+    lines.push("//  - file 是 photos/ 目录下文件的相对路径（相对站点根）");
+    lines.push("//  - title 是照片标题，date 用 YYYY-MM-DD，相册按日期从新到旧排序");
+    lines.push("// ============================================================");
+    lines.push("window.PHOTOS = [");
+
+    photos.forEach(function (p, i) {
+      lines.push("  { file: " + q(p.file) + ", title: " + q(p.title) + ", date: " + q(p.date) + " }" +
+        (i < photos.length - 1 ? "," : ""));
+    });
+
+    lines.push("];");
+    lines.push("");
+    return lines.join("\n");
   }
 
   /* ---------------- 列表与选中 ---------------- */
@@ -810,6 +873,129 @@
     }
   }
 
+  /* ---------------- 照片 ---------------- */
+
+  function renderPhotoGrid() {
+    var box = $("photoGrid");
+    $("photoCount").textContent = "共 " + S.photos.length + " 张";
+
+    if (!S.photos.length) {
+      box.innerHTML = '<p class="post-empty">还没有照片，点右上角「选择照片」上传第一张。</p>';
+      return;
+    }
+
+    box.innerHTML = S.photos.map(function (p) {
+      return (
+        '<figure class="photo-tile" data-file="' + esc(p.file) + '">' +
+          '<a href="/' + esc(p.file) + '" target="_blank" rel="noopener" title="查看原图">' +
+            '<img src="/' + esc(p.file) + '" alt="' + esc(p.title) + '" loading="lazy" />' +
+          "</a>" +
+          "<figcaption>" +
+            "<b>" + esc(p.title) + "</b>" +
+            "<span>" + esc(p.date) + " · " + esc(p.file.replace(/^photos\//, "")) + "</span>" +
+          "</figcaption>" +
+          '<button class="btn tiny danger" type="button" data-del="' + esc(p.file) + '">删除</button>' +
+        "</figure>"
+      );
+    }).join("");
+  }
+
+  // 浏览器端压缩：最长边 1920，JPEG q0.85（GitHub 单文件限 100MB，足够小）
+  function compressPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) { reject(new Error("读不了这张图：" + file.name)); return; }
+        var max = 1920;
+        var scale = Math.min(1, max / Math.max(w, h));
+        var tw = Math.max(1, Math.round(w * scale));
+        var th = Math.max(1, Math.round(h * scale));
+        var canvas = document.createElement("canvas");
+        canvas.width = tw;
+        canvas.height = th;
+        var ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, tw, th);
+        ctx.drawImage(img, 0, 0, tw, th);
+        resolve(canvas.toDataURL("image/jpeg", 0.85).split(",")[1]);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error("不支持的图片格式：" + file.name));
+      };
+      img.src = url;
+    });
+  }
+
+  async function uploadPhotos(fileList) {
+    if (S.saving) return;
+    if (!fileList || !fileList.length) return;
+
+    var files = Array.prototype.slice.call(fileList);
+    S.saving = true;
+    updateDirtyLabel();
+    $("photoInput").disabled = true;
+    var done = 0;
+
+    try {
+      var uploaded = [];
+      for (var i = 0; i < files.length; i++) {
+        toast("正在上传照片 " + (i + 1) + "/" + files.length + " …");
+        var base64 = await compressPhoto(files[i]);
+        var stamp = Date.now() + "-" + Math.random().toString(36).slice(2, 6);
+        var file = "photos/photo-" + stamp + ".jpg";
+        var original = (files[i].name || "未命名").replace(/\.[^.]+$/, "");
+        var sha = await writeBinary(file, base64, "photo: 上传 " + original);
+        uploaded.push({ file: file, title: original.slice(0, 60) || "未命名", date: today(), sha: sha });
+        done++;
+      }
+
+      var next = S.photos.concat(uploaded);
+      var text = renderPhotos(next);
+      S.sha.photos = await writeFile(FILE_PHOTOS, text, "photo: 更新照片清单（+" + uploaded.length + "）", S.sha.photos);
+      S.photos = next;
+      S.rawText.photos = text;
+
+      renderPhotoGrid();
+      toast("已上传 " + uploaded.length + " 张 · 一分钟后相册可见", "ok");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      S.saving = false;
+      $("photoInput").disabled = false;
+      $("photoInput").value = "";
+      updateDirtyLabel();
+    }
+  }
+
+  async function deletePhoto(file) {
+    if (!confirm("确定删除这张照片吗？\n\n" + file + "\n会从网站和 GitHub 上一起删掉，无法恢复。")) return;
+
+    S.saving = true;
+    updateDirtyLabel();
+    try {
+      var sha = await getSha(file);
+      await deleteFile(file, sha, "photo: 删除 " + file);
+
+      var next = S.photos.filter(function (p) { return p.file !== file; });
+      var text = renderPhotos(next);
+      S.sha.photos = await writeFile(FILE_PHOTOS, text, "photo: 更新照片清单（-1）", S.sha.photos);
+      S.photos = next;
+      S.rawText.photos = text;
+
+      renderPhotoGrid();
+      toast("已删除 · 一分钟后生效", "ok");
+    } catch (e) {
+      toast(e.message, "err");
+    } finally {
+      S.saving = false;
+      updateDirtyLabel();
+    }
+  }
+
   /* ---------------- 顶栏 ---------------- */
 
   function renderHeader() {
@@ -837,11 +1023,24 @@
       S.posts = parsePosts(a.text);
       S.site = parseSite(b.text);
 
+      // photos.js 可能还没有（老仓库/全新相册），当作空相册
+      try {
+        var c = await readFile(FILE_PHOTOS);
+        S.sha.photos = c.sha;
+        S.rawText.photos = c.text;
+        S.photos = parsePhotos(c.text);
+      } catch (e) {
+        S.sha.photos = "";
+        S.rawText.photos = "";
+        S.photos = [];
+      }
+
       $("gate").hidden = true;
       $("desk").hidden = false;
 
       renderHeader();
       renderList();
+      renderPhotoGrid();
       fillSite();
       fillRaw();
       updateDirtyLabel();
@@ -889,6 +1088,7 @@
           tabs[j].classList.toggle("on", tabs[j] === this);
         }
         $("panelPosts").classList.toggle("on", name === "posts");
+        $("panelPhotos").classList.toggle("on", name === "photos");
         $("panelSite").classList.toggle("on", name === "site");
         $("panelRaw").classList.toggle("on", name === "raw");
       });
@@ -967,6 +1167,32 @@
     $("revertRawBtn").addEventListener("click", reloadRaw);
   }
 
+  function bindPhotos() {
+    $("photoInput").addEventListener("change", function () {
+      if (this.files && this.files.length) uploadPhotos(this.files);
+    });
+
+    $("photoGrid").addEventListener("click", function (e) {
+      var del = e.target.closest("[data-del]");
+      if (del) deletePhoto(del.getAttribute("data-del"));
+    });
+
+    $("refreshPhotosBtn").addEventListener("click", async function () {
+      if (S.saving) return;
+      toast("正在拉取最新照片清单…");
+      try {
+        var c = await readFile(FILE_PHOTOS);
+        S.sha.photos = c.sha;
+        S.rawText.photos = c.text;
+        S.photos = parsePhotos(c.text);
+        renderPhotoGrid();
+        toast("已是最新", "ok");
+      } catch (e) {
+        toast(e.message, "err");
+      }
+    });
+  }
+
   function bindMisc() {
     $("logoutBtn").addEventListener("click", function () {
       if (!confirm("退出写作台？（令牌会从这台设备删掉，未发布的草稿保留）")) return;
@@ -996,5 +1222,6 @@
   bindEditor();
   bindSite();
   bindRaw();
+  bindPhotos();
   bindMisc();
 })();

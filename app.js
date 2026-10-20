@@ -5,6 +5,10 @@
   var POSTS = (window.POSTS || []).slice().sort(function (a, b) {
     return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
   });
+  var PHOTOS = (window.PHOTOS || []).slice().sort(function (a, b) {
+    return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+  });
+  var lightbox = { index: -1 };
   var TAGS = ["全部"];
   POSTS.forEach(function (p) {
     if (p.tag && TAGS.indexOf(p.tag) === -1) TAGS.push(p.tag);
@@ -234,6 +238,82 @@
     );
   }
 
+  function photosHTML() {
+    var head = (
+      '<section class="page photos">' +
+        '<p class="eyebrow">' + esc(SITE.name || "个人博客") + ' <span class="dot">·</span> PHOTOS</p>' +
+        "<h1>照片墙</h1>" +
+        '<p class="tagline">走过的路、见过的人、窗外的光——都放在这里。</p>'
+    );
+
+    if (!PHOTOS.length) {
+      return head + '<p class="photos-empty">相册还空着，去写作台「照片」里传第一张吧。</p></section>';
+    }
+
+    var grid = PHOTOS.map(function (p, i) {
+      return (
+        '<figure class="photo-item" data-photo="' + i + '" role="button" tabindex="0" aria-label="查看大图' + esc(p.title ? "：" + p.title : "") + '">' +
+          '<img src="' + esc(p.file) + '" alt="' + esc(p.title || "") + '" loading="lazy" />' +
+          "<figcaption>" +
+            "<b>" + esc(p.title || "未命名") + "</b>" +
+            "<span>" + dateLabel(p.date) + "</span>" +
+          "</figcaption>" +
+        "</figure>"
+      );
+    }).join("");
+
+    return head + '<div class="photos-grid">' + grid + "</div></section>";
+  }
+
+  /* ---------------- 灯箱 ---------------- */
+
+  function lightboxShow(i) {
+    if (i < 0 || i >= PHOTOS.length) return;
+    lightbox.index = i;
+    var p = PHOTOS[i];
+
+    var lb = document.getElementById("lightbox");
+    if (!lb) {
+      lb = document.createElement("div");
+      lb.id = "lightbox";
+      lb.className = "lightbox";
+      lb.innerHTML =
+        '<button class="lb-close" type="button" aria-label="关闭">×</button>' +
+        '<button class="lb-nav lb-prev" type="button" aria-label="上一张">‹</button>' +
+        '<div class="lb-stage"><img alt="" /></div>' +
+        '<button class="lb-nav lb-next" type="button" aria-label="下一张">›</button>' +
+        '<div class="lb-cap"></div>';
+      document.body.appendChild(lb);
+
+      lb.addEventListener("click", function (e) {
+        if (e.target === lb) lightboxHide();
+      });
+      lb.querySelector(".lb-close").addEventListener("click", lightboxHide);
+      lb.querySelector(".lb-prev").addEventListener("click", function (e) {
+        e.stopPropagation();
+        lightboxShow((lightbox.index - 1 + PHOTOS.length) % PHOTOS.length);
+      });
+      lb.querySelector(".lb-next").addEventListener("click", function (e) {
+        e.stopPropagation();
+        lightboxShow((lightbox.index + 1) % PHOTOS.length);
+      });
+    }
+
+    lb.querySelector("img").src = p.file;
+    lb.querySelector("img").alt = p.title || "";
+    lb.querySelector(".lb-stage").style.backgroundImage = 'url("' + p.file + '")';
+    lb.querySelector(".lb-cap").textContent =
+      esc(p.title || "未命名") + " · " + dateLabel(p.date) + "　" + (i + 1) + " / " + PHOTOS.length;
+    lb.classList.add("on");
+    document.body.classList.add("lb-open");
+  }
+
+  function lightboxHide() {
+    var lb = document.getElementById("lightbox");
+    if (lb) lb.classList.remove("on");
+    document.body.classList.remove("lb-open");
+  }
+
   function notFoundHTML() {
     return (
       '<section class="page empty">' +
@@ -252,6 +332,7 @@
     var h = location.hash.replace(/^#/, "");
     if (!h || h === "/" || h === "/index.html") return { name: "home" };
     if (h === "/about") return { name: "about" };
+    if (h === "/photos") return { name: "photos" };
     var m = h.match(/^\/post\/([^/]+)$/);
     if (m) return { name: "post", slug: decodeURIComponent(m[1]) };
     return { name: "404" };
@@ -287,6 +368,11 @@
       setNav("about");
       setTitle("关于");
       setDescription(SITE.tagline);
+    } else if (route.name === "photos") {
+      view.innerHTML = photosHTML();
+      setNav("photos");
+      setTitle("照片墙");
+      setDescription("走过的路、见过的人、窗外的光。");
     } else if (route.name === "post") {
       var post = null;
       for (var i = 0; i < POSTS.length; i++) {
@@ -334,7 +420,23 @@
         }
       }
       if (list) list.innerHTML = postListHTML();
+      return;
     }
+
+    var photo = e.target.closest("[data-photo]");
+    if (photo) {
+      lightboxShow(parseInt(photo.getAttribute("data-photo"), 10));
+      return;
+    }
+  });
+
+  // 灯箱键盘：左右切换，Esc 关闭
+  document.addEventListener("keydown", function (e) {
+    var lb = document.getElementById("lightbox");
+    if (!lb || !lb.classList.contains("on")) return;
+    if (e.key === "Escape") lightboxHide();
+    else if (e.key === "ArrowLeft") lightboxShow((lightbox.index - 1 + PHOTOS.length) % PHOTOS.length);
+    else if (e.key === "ArrowRight") lightboxShow((lightbox.index + 1) % PHOTOS.length);
   });
 
   window.addEventListener("hashchange", render);

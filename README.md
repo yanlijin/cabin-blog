@@ -69,10 +69,13 @@ netlify deploy --prod --dir .
 | 标签页 | 能干什么 |
 | --- | --- |
 | **文章** | 新建 / 编辑 / 删除文章，左边写右边实时预览，改动自动存本地草稿（关掉页面也不丢） |
+| **照片** | 上传照片到「相册」页：一次可选多张，自动压缩（最长边 1920px 的 JPEG）后存进仓库 `photos/` 目录，也可以删除 |
 | **站点信息** | 改站点名、首页大标题、作者、GitHub、邮箱、页脚这些 —— 对应 `site.js` |
 | **源文件** | 直接编辑 `posts.js` / `site.js` 原文，写坏了会拦住不让你发布 |
 
 快捷键 `Ctrl+S`（Mac 上 `Cmd+S`）＝ 保存并发布当前标签页。
+
+相册页：网站顶栏的「相册」（<https://yanblogg.netlify.app/#/photos>）展示所有上传的照片，点击可以放大、左右切换。照片清单存在 `photos.js` 里，图片本体在 `photos/` 目录。
 
 改完的样子：
 
@@ -156,7 +159,9 @@ copy ..\cabin-in-the-woods\cabin-in-the-woods.html scene.html
 | `styles.css` | 全部样式 |
 | `site.js` | 站点信息 / 关于页文案 |
 | `posts.js` | 文章数据 |
-| `app.js` | 路由、列表渲染、极简 Markdown |
+| `photos.js` | 相册照片清单（`file`/`title`/`date`） |
+| `photos/` | 上传的照片（通过写作台生成） |
+| `app.js` | 路由、列表渲染、极简 Markdown、相册与灯箱 |
 | `admin.html` / `admin.css` / `admin.js` | 浏览器里的写作台（`/admin`） |
 | `scene.html` | 3D 林中小屋背景 |
 | `bg.jpg` / `bg-mobile.jpg` / `og.jpg` | 静态背景与分享图 |

@@ -65,6 +65,7 @@
 
   <nav class="tabs">
     <button class="tab on" type="button" data-tab="posts">文章</button>
+    <button class="tab" type="button" data-tab="photos">照片</button>
     <button class="tab" type="button" data-tab="site">站点信息</button>
     <button class="tab" type="button" data-tab="raw">源文件</button>
     <span class="tabs-fill"></span>
@@ -143,6 +144,27 @@
               <button class="btn danger" id="deletePostBtn" type="button">删除这篇</button>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- 照片 ---- -->
+    <section class="panel" id="panelPhotos">
+      <div class="site-card">
+        <div class="photo-head">
+          <div>
+            <h2>照片墙</h2>
+            <p class="hint">上传的照片会自动压缩后存到仓库 photos/ 目录，并出现在网站的「相册」页。点「选择照片」可以一次选多张。</p>
+          </div>
+          <div class="photo-actions">
+            <label class="btn primary" for="photoInput">＋ 选择照片</label>
+            <input id="photoInput" type="file" accept="image/*" multiple hidden />
+          </div>
+        </div>
+        <div class="photo-grid" id="photoGrid"></div>
+        <div class="photo-foot" id="photoFoot">
+          <span class="field-label" style="margin:0" id="photoCount">共 0 张</span>
+          <button class="btn" id="refreshPhotosBtn" type="button">刷新列表</button>
         </div>
       </div>
     </section>
