@@ -1,0 +1,31 @@
+[build]
+  publish = "."
+
+# 单页应用：所有未知路径回落到首页（博客用 hash 路由，正常不会触发，兜底用）
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# 3D 背景体积较大，单独给长缓存
+[[headers]]
+  for = "/scene.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=600, must-revalidate"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=600, must-revalidate"

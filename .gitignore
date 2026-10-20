@@ -1,0 +1,28 @@
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# Netlify
+.netlify/
+
+# 本地预览 / 智能体临时文件
+.chrome-tmp/
+_*.html
+_*.jpg
+_*.png
+_*.json
+.http-*.png
+.[!.]*.png
+!preview-*.png
+
+# 依赖（这个项目没有依赖，防止以后误传）
+node_modules/
+
+# 日志
+*.log

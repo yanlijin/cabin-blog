@@ -1,0 +1,13 @@
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+where node >nul 2>nul
+if errorlevel 1 (
+  echo 没有找到 Node.js，请先安装 Node.js：https://nodejs.org/
+  pause
+  exit /b 1
+)
+echo.
+echo 正在启动「林中小屋」分享服务...
+node serve.js
+pause
