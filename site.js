@@ -10,8 +10,8 @@ window.SITE = {
   avatar: "林",                   // 关于页头像里的字（一个字最好）
   location: "山脚 · 某处",
   since: "2026",
-  github: "https://github.com/yourname",     // 换成你的 GitHub
-  email: "hello@example.com",               // 换成你的邮箱
+  github: "https://github.com/yanlijin",     // 换成你的 GitHub
+  email: "yanlijin@users.noreply.github.com", // 换成你的邮箱（用 noreply 可以避免公开真实邮箱）
   footer: "用 three.js 搭了一座小屋，住在里面写字。",
 
   about: {

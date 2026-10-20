@@ -1,31 +1,45 @@
 [build]
   publish = "."
 
-# 单页应用：所有未知路径回落到首页（博客用 hash 路由，正常不会触发，兜底用）
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
+# 这是一个 hash 路由的纯静态站点：真实路径只有 / 和 /scene.html。
+# 不要用 /* → /index.html 的 200 兜底，否则任何不存在的地址都会返回 200（soft 404），伤 SEO。
+# 不存在的路径交给 Netlify 的 404.html。
 
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
 
-# 3D 背景体积较大，单独给长缓存
+# 3D 场景体积较大，给一小时缓存
 [[headers]]
   for = "/scene.html"
   [headers.values]
     Cache-Control = "public, max-age=3600"
 
 [[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# 代码和文章改动频繁，短缓存 + 必须回源校验，保证发布后立刻生效
+[[headers]]
   for = "/*.js"
   [headers.values]
-    Cache-Control = "public, max-age=600, must-revalidate"
+    Cache-Control = "public, max-age=0, must-revalidate"
 
 [[headers]]
   for = "/*.css"
   [headers.values]
-    Cache-Control = "public, max-age=600, must-revalidate"
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
