@@ -124,9 +124,13 @@ async function main() {
 
     const count = await evaluate("document.getElementById('postCount').textContent");
     const items = await evaluate("document.querySelectorAll('.post-item').length");
-    console.log("PASS 4 读到文章列表：显示 " + count + " 篇，渲染 " + items + " 条");
+    // 仓库里实际有几篇就以几篇为准（线上随时可能又发新文章）
+    const repoPostsBox = {};
+    new Function("window", fs.readFileSync(path.join(__dirname, "..", "posts.js"), "utf8"))(repoPostsBox);
+    const N = (repoPostsBox.POSTS || []).length;
+    console.log("PASS 4 读到文章列表：显示 " + count + " 篇，渲染 " + items + " 条（仓库现有 " + N + " 篇）");
 
-    if (String(count) !== "6" || items !== 6) throw new Error("文章数量不对，期望 6");
+    if (String(count) !== String(N) || items !== N) throw new Error("文章数量不对，期望 " + N + "，实际 " + count + " 篇 / " + items + " 条");
 
     // 列表按日期倒序
     const firstTitle = await evaluate("document.querySelector('.post-item b').textContent");
@@ -187,8 +191,8 @@ async function main() {
     const items2 = await evaluate("document.querySelectorAll('.post-item').length");
     const newStatus = await evaluate("document.getElementById('statusLabel').textContent");
     console.log("PASS 14 新建文章后列表 " + items2 + " 条（已发布仍是 " + n2 + " 篇），状态：" + newStatus);
-    if (String(n2) !== "6") throw new Error("新建草稿不应计入已发布篇数，实际：" + n2);
-    if (items2 !== 7) throw new Error("列表应显示 7 条（6 篇已发布 + 1 篇新草稿），实际：" + items2);
+    if (String(n2) !== String(N)) throw new Error("新建草稿不应计入已发布篇数，实际：" + n2 + "（期望 " + N + "）");
+    if (items2 !== N + 1) throw new Error("列表应显示 " + (N + 1) + " 条（" + N + " 篇已发布 + 1 篇新草稿），实际：" + items2);
     if (newStatus !== "有未保存的修改") throw new Error("新文章状态应为「有未保存的修改」，实际：" + newStatus);
 
     await evaluate(`
@@ -391,7 +395,133 @@ async function main() {
     if (manifestCount2 !== 1) throw new Error("删除后清单应有 1 条，实际 " + manifestCount2);
     if (jpgLeft !== 1) throw new Error("删除后仓库照片文件应剩 1 个，实际 " + jpgLeft);
 
-    // ---------- 10. 截图 ----------
+    // ---------- 10. 小游戏：推箱子 ----------
+    // 真键盘事件走 CDP Input 域，检验页面上真实的 keydown 处理
+    const KEYS = {
+      ArrowUp: ["ArrowUp", "ArrowUp", 38],
+      ArrowDown: ["ArrowDown", "ArrowDown", 40],
+      ArrowLeft: ["ArrowLeft", "ArrowLeft", 37],
+      ArrowRight: ["ArrowRight", "ArrowRight", 39],
+      w: ["w", "KeyW", 87],
+      a: ["a", "KeyA", 65],
+      s: ["s", "KeyS", 83],
+      d: ["d", "KeyD", 68],
+      u: ["u", "KeyU", 85],
+      r: ["r", "KeyR", 82]
+    };
+    async function key(name) {
+      const k = KEYS[name];
+      const base = { windowsVirtualKeyCode: k[2], nativeVirtualKeyCode: k[2], key: k[0], code: k[1] };
+      await send("Input.dispatchKeyEvent", Object.assign({ type: "rawKeyDown" }, base));
+      await send("Input.dispatchKeyEvent", Object.assign({ type: "keyUp" }, base));
+      await sleep(150);
+    }
+    const gameDebug = () => evaluate("JSON.stringify(window.Sokoban && window.Sokoban.debug())").then((s) => JSON.parse(s));
+
+    await send("Page.navigate", { url: BASE + "/#/game" });
+    await waitFor("!!window.Sokoban && !!document.getElementById('gameCanvas')", 12000, "游戏页加载");
+    await sleep(400);
+
+    const gNav = await evaluate("(function(){var a=document.querySelector('[data-nav=game]');return a?a.textContent.trim():'';})()");
+    const gTitle = await evaluate("document.querySelector('.game h1').textContent");
+    const gChips = await evaluate("document.querySelectorAll('.g-chip').length");
+    const gCanvas = await evaluate("(function(){var c=document.getElementById('gameCanvas');return c.width+'x'+c.height;})()");
+    let g = await gameDebug();
+    console.log("PASS 27 游戏页渲染：导航「" + gNav + "」，标题「" + gTitle + "」，关卡按钮 " + gChips + " 个，画布 " + gCanvas +
+      "，第 " + (g.level + 1) + " 关「" + g.name + "」箱子 " + JSON.stringify(g.boxes));
+    if (gNav !== "小游戏") throw new Error("导航里应有小游戏入口，实际：" + gNav);
+    if (gTitle !== "推箱子") throw new Error("标题应为推箱子，实际：" + gTitle);
+    if (gChips !== 8) throw new Error("应有 8 个关卡按钮，实际：" + gChips);
+    if (g.level !== 0 || g.moves !== 0 || g.won) throw new Error("应停在第 1 关开局，实际 " + JSON.stringify(g));
+    if (g.cols !== 7 || g.rows !== 5 || g.player.x !== 2 || g.player.y !== 2) throw new Error("第 1 关棋盘不对：" + JSON.stringify(g));
+
+    // 方向键：向右一步就把唯一的箱子推上目标格 → 过关
+    await key("ArrowRight");
+    g = await gameDebug();
+    if (g.moves !== 1 || g.pushes !== 1) throw new Error("按一次右键应走 1 步、推 1 次，实际 " + JSON.stringify(g));
+    if (!g.won || g.boxes[0].x !== 4 || g.boxes[0].y !== 2) throw new Error("箱子应被推到 (4,2) 并过关，实际 " + JSON.stringify(g));
+    await waitFor("document.getElementById('gameWin').classList.contains('on')", 4000, "过关浮层出现");
+    const winMeta = await evaluate("document.getElementById('gameWinMeta').textContent");
+    const winTitle = await evaluate("document.getElementById('gameWinTitle').textContent");
+    console.log("PASS 28 键盘推动过关：「" + winTitle + "」" + winMeta + "，浮层已弹出");
+    const winShot = await send("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(OUT, "game-win.png"), Buffer.from(winShot.data, "base64"));
+    const savedRaw = await evaluate("localStorage.getItem('cabin-blog.sokoban')");
+    if (!savedRaw || JSON.parse(savedRaw).done.indexOf(0) === -1) throw new Error("通关进度没写进 localStorage：" + savedRaw);
+
+    // 撤销：箱子退回原处、步数归零、浮层收起
+    await key("u");
+    g = await gameDebug();
+    if (g.moves !== 0 || g.pushes !== 0 || g.won || g.boxes[0].x !== 3) throw new Error("撤销后应回到开局，实际 " + JSON.stringify(g));
+    if (await evaluate("document.getElementById('gameWin').classList.contains('on')")) throw new Error("撤销后过关浮层应收起");
+    await key("ArrowRight");
+    await key("r");
+    g = await gameDebug();
+    if (g.moves !== 0 || g.pushes !== 0 || g.won || g.boxes[0].x !== 3) throw new Error("重来后应回到开局，实际 " + JSON.stringify(g));
+    console.log("PASS 29 撤销与重来：撤销回退到 " + g.moves + " 步，重来后箱子回到 " + JSON.stringify(g.boxes[0]));
+
+    // 关卡切换 + 进度存档
+    await evaluate("document.querySelector('.g-chip[data-level=\"4\"]').click();");
+    await sleep(350);
+    g = await gameDebug();
+    if (g.level !== 4 || g.name !== "两只箱子" || g.cols !== 9 || g.rows !== 7) throw new Error("切到第 5 关失败：" + JSON.stringify(g));
+    await evaluate("document.querySelector('.g-chip[data-level=\"0\"]').click();");
+    await sleep(300);
+    const chipState = await evaluate("(function(){var c=document.querySelector('.g-chip[data-level=\"0\"]');return (c.classList.contains('on')?'on ':'')+(c.classList.contains('done')?'done':'');})()");
+    g = await gameDebug();
+    if (g.level !== 0 || chipState !== "on done") throw new Error("关卡按钮状态不对：" + chipState + " / " + JSON.stringify(g));
+    console.log("PASS 30 关卡切换与存档：切到第 5 关 " + g.cols + "x" + g.rows + " 棋盘，回到第 1 关按钮显示「" + chipState.trim() + "」，通关记录在本地");
+
+    // WASD 与撞墙：第 1 关小人左边两格才是墙
+    const before = (await gameDebug()).moves;
+    await key("ArrowLeft");                       // (2,2) → (1,2)
+    await key("a");                               // 再往左是墙，不该动
+    g = await gameDebug();
+    if (g.moves !== before + 1 || g.player.x !== 1 || g.player.y !== 2) throw new Error("撞墙不该算步数，实际 " + JSON.stringify(g));
+    await key("s");
+    g = await gameDebug();
+    if (g.moves !== before + 2 || g.pushes !== 0 || g.player.y !== 3) throw new Error("按 s 应往下走一格且不算推动，实际 " + JSON.stringify(g));
+    await key("w");
+    g = await gameDebug();
+    if (g.moves !== before + 3 || g.player.y !== 2) throw new Error("按 w 应走回来，实际 " + JSON.stringify(g));
+    await key("d");
+    await key("d");                               // 第二下把箱子推上目标
+    g = await gameDebug();
+    if (!g.won || g.pushes !== 1) throw new Error("按 d 应把箱子推上目标过关，实际 " + JSON.stringify(g));
+    console.log("PASS 31 WASD 与撞墙：撞墙 0 步，s/w 上下各 1 步，d 推动过关（共 " + g.moves + " 步 " + g.pushes + " 推）");
+    const deskShot = await send("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(OUT, "game.png"), Buffer.from(deskShot.data, "base64"));
+
+    // 离开游戏页要卸载干净：键盘不再响应，页面也不该出错
+    await evaluate("location.hash = '#/';");
+    await sleep(450);
+    if (await evaluate("!!window.Sokoban.debug()")) throw new Error("离开游戏页后应卸载游戏状态");
+    const homeItems = await evaluate("document.querySelectorAll('.post-item').length");
+    await key("ArrowRight");
+    if (homeItems < 1) throw new Error("回到首页应看到文章列表，实际 " + homeItems);
+    console.log("PASS 32 离开页面后卸载：游戏状态已清空，首页 " + homeItems + " 篇文章正常，方向键不再被游戏接管");
+
+    // 手机端：方向键盘可见，点一下真的会走
+    await evaluate("location.hash = '#/game';");
+    await waitFor("!!window.Sokoban.debug()", 8000, "重新进入游戏页");
+    await send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+    await sleep(600);
+    const padDisplay = await evaluate("getComputedStyle(document.getElementById('gamePad')).display");
+    const padBox = await evaluate("(function(){var r=document.getElementById('gamePad').getBoundingClientRect();return Math.round(r.width)+'x'+Math.round(r.height);})()");
+    const preMoves = (await gameDebug()).moves;
+    await evaluate("document.querySelector('.game-pad [data-dir=right]').click();");
+    await sleep(350);
+    g = await gameDebug();
+    if (padDisplay === "none") throw new Error("手机端应显示方向键盘");
+    if (g.moves !== preMoves + 1 || !g.won) throw new Error("点手机方向键应走一步并过关，实际 " + JSON.stringify(g));
+    console.log("PASS 33 手机端操作：方向键盘 display=" + padDisplay + "，尺寸 " + padBox + "，点右键走 1 步并过关（" + g.moves + " 步）");
+    await sleep(500);
+    const mobShot = await send("Page.captureScreenshot", { format: "png" });
+    fs.writeFileSync(path.join(OUT, "game-mobile.png"), Buffer.from(mobShot.data, "base64"));
+    await send("Emulation.clearDeviceMetricsOverride");
+    await sleep(300);
+
+    // ---------- 11. 截图 ----------
     await send("Page.navigate", { url: BASE + "/admin?api=" + encodeURIComponent(API) });
     await waitFor("!!document.getElementById('tokenInput')", 10000, "登录页重新加载");
     await evaluate("document.getElementById('tokenInput').value='ghp_testtoken'; document.getElementById('enterBtn').click();");
@@ -432,13 +562,13 @@ async function main() {
     shot = await send("Page.captureScreenshot", { format: "png" });
     fs.writeFileSync(path.join(OUT, "admin-mobile.png"), Buffer.from(shot.data, "base64"));
 
-    console.log("\nPASS 27 截图已保存");
+    console.log("\nPASS 34 截图已保存");
 
     if (consoleErrors.length) {
       console.log("\n!! 页面 JS 异常：");
       consoleErrors.forEach((e) => console.log("   " + e));
     } else {
-      console.log("PASS 28 页面无 JS 异常");
+      console.log("PASS 35 页面无 JS 异常");
     }
 
     console.log("\n全部通过 ✅");

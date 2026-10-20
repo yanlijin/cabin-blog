@@ -77,6 +77,14 @@ netlify deploy --prod --dir .
 
 相册页：网站顶栏的「相册」（<https://yanblogg.netlify.app/#/photos>）展示所有上传的照片，点击可以放大、左右切换。照片清单存在 `photos.js` 里，图片本体在 `photos/` 目录。
 
+小游戏页：顶栏的「小游戏」（<https://yanblogg.netlify.app/#/game>）是一个推箱子小游戏，一共 8 关，从一步就能过的「第一步」到五只箱子的「四方」。
+
+- 电脑：方向键或 `WASD` 移动，`U`（或 `Z`）撤销，`R` 重来
+- 手机：点棋盘下方的方向键，或者直接在棋盘上滑动
+- 进度存在浏览器本地（`localStorage` 的 `cabin-blog.sokoban`），关掉页面再回来还在原来的关卡
+
+> 8 关都用求解器验证过有解，不会出现死局卡关。想加关卡就编辑 `sokoban.js` 顶部的 `LEVELS`，照着 `map` 的写法加一段：`#` 墙、空格地面、`.` 目标、`$` 箱子、`@` 小人、`*` 箱子已在目标上、`+` 小人站在目标上（每关的列宽要一致）。
+
 改完的样子：
 
 - 网站地址：<https://yanblogg.netlify.app/>
@@ -162,6 +170,7 @@ copy ..\cabin-in-the-woods\cabin-in-the-woods.html scene.html
 | `photos.js` | 相册照片清单（`file`/`title`/`date`） |
 | `photos/` | 上传的照片（通过写作台生成） |
 | `app.js` | 路由、列表渲染、极简 Markdown、相册与灯箱 |
+| `sokoban.js` | 推箱子小游戏（`#/game`）：关卡数据、Canvas 渲染、操作与本地存档 |
 | `admin.html` / `admin.css` / `admin.js` | 浏览器里的写作台（`/admin`） |
 | `scene.html` | 3D 林中小屋背景 |
 | `bg.jpg` / `bg-mobile.jpg` / `og.jpg` | 静态背景与分享图 |

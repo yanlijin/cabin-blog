@@ -333,6 +333,7 @@
     if (!h || h === "/" || h === "/index.html") return { name: "home" };
     if (h === "/about") return { name: "about" };
     if (h === "/photos") return { name: "photos" };
+    if (h === "/game") return { name: "game" };
     var m = h.match(/^\/post\/([^/]+)$/);
     if (m) return { name: "post", slug: decodeURIComponent(m[1]) };
     return { name: "404" };
@@ -354,9 +355,14 @@
     if (meta) meta.setAttribute("content", text || SITE.tagline || "");
   }
 
+  var lastRoute = "";
+
   function render() {
     var route = parseHash();
     var scrollToTop = true;
+
+    // 小游戏有自己的键盘/定时器，离开这一页要先拆掉
+    if (lastRoute === "game" && window.Sokoban) window.Sokoban.unmount();
 
     if (route.name === "home") {
       view.innerHTML = homeHTML();
@@ -373,6 +379,17 @@
       setNav("photos");
       setTitle("照片墙");
       setDescription("走过的路、见过的人、窗外的光。");
+    } else if (route.name === "game") {
+      if (window.Sokoban) {
+        view.innerHTML = window.Sokoban.html();
+        setNav("game");
+        setTitle("推箱子");
+        setDescription("林间小游戏：把木箱推到发光的格子上就过关，方向键或 WASD 操作。");
+        window.Sokoban.mount(view);
+      } else {
+        view.innerHTML = notFoundHTML();
+        setNav("");
+      }
     } else if (route.name === "post") {
       var post = null;
       for (var i = 0; i < POSTS.length; i++) {
@@ -394,6 +411,8 @@
       setNav("");
       setTitle("页面走丢了");
     }
+
+    lastRoute = route.name;
 
     if (scrollToTop) window.scrollTo({ top: 0, behavior: "auto" });
   }
