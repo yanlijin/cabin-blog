@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#070b0d" />
+<meta name="robots" content="noindex, nofollow" />
+<title>写作台 · 林间札记</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23070b0d'/%3E%3Cpath d='M32 14 14 34h8v14h20V34h8z' fill='%23f0a45c'/%3E%3Crect x='27' y='38' width='10' height='10' fill='%23070b0d'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+
+<!-- ============ 登录 ============ -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <div class="gate-brand">✎ WRITING DESK</div>
+    <h1>写作台</h1>
+    <p class="gate-intro">
+      在这里写文章、改站点信息，点一下「保存并发布」，改动会直接提交到你的 GitHub 仓库，Netlify 一分钟后自动更新。
+    </p>
+
+    <div class="gate-steps">
+      <ol>
+        <li>打开 <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=cabin-blog" target="_blank" rel="noopener">创建令牌页面</a>（已帮你勾好权限）</li>
+        <li>最下面点 <b>Generate token</b>，复制生成的 <b>ghp_…</b></li>
+        <li>粘贴到下面，勾选「记住」，以后就不用再输了</li>
+      </ol>
+    </div>
+
+    <label class="field">
+      <span class="field-label">GitHub 访问令牌</span>
+      <input id="tokenInput" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false" />
+    </label>
+
+    <label class="check">
+      <input id="rememberInput" type="checkbox" checked />
+      <span>记住这台设备（只存在你自己的浏览器里）</span>
+    </label>
+
+    <div class="gate-actions">
+      <button class="btn primary" id="enterBtn" type="button">进入写作台</button>
+    </div>
+    <p class="gate-err" id="gateErr"></p>
+
+    <p class="gate-note">
+      令牌只保存在你浏览器的 localStorage，不会发到任何地方，除了直接提交给你自己的 GitHub。
+      它相当于仓库的写权限密码，别截图分享；不想用了就去 GitHub 设置里删掉。
+    </p>
+  </div>
+</div>
+
+<!-- ============ 写作台 ============ -->
+<div class="desk" id="desk" hidden>
+  <header class="bar">
+    <a class="bar-brand" href="/">▲ 林间札记</a>
+    <span class="bar-sep">/</span>
+    <span class="bar-title">写作台</span>
+    <div class="bar-right">
+      <span class="bar-repo" id="repoLabel"></span>
+      <a class="bar-link" href="/" target="_blank" rel="noopener">看网站 ↗</a>
+      <button class="bar-btn" id="logoutBtn" type="button">退出</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab on" type="button" data-tab="posts">文章</button>
+    <button class="tab" type="button" data-tab="site">站点信息</button>
+    <button class="tab" type="button" data-tab="raw">源文件</button>
+    <span class="tabs-fill"></span>
+    <span class="tabs-status" id="statusLabel">未修改</span>
+  </nav>
+
+  <main class="wrap">
+
+    <!-- ---- 文章 ---- -->
+    <section class="panel on" id="panelPosts">
+      <div class="split">
+        <aside class="side">
+          <div class="side-head">
+            <span>共 <b id="postCount">0</b> 篇</span>
+            <button class="btn tiny ghost" id="newPostBtn" type="button">+ 新文章</button>
+          </div>
+          <div class="post-items" id="postItems"></div>
+        </aside>
+
+        <div class="pane" id="editorPane">
+          <div class="pane-empty" id="editorEmpty">在左边选一篇文章，或者新建一篇。</div>
+
+          <div id="editorForm" hidden>
+            <div class="form-grid">
+              <label class="field">
+                <span class="field-label">标题</span>
+                <input id="fTitle" type="text" placeholder="给这篇文章起个名字" />
+              </label>
+              <label class="field">
+                <span class="field-label">网址标识 slug（英文 / 数字 / 短横线）</span>
+                <input id="fSlug" type="text" placeholder="hello-cabin" spellcheck="false" />
+              </label>
+              <label class="field">
+                <span class="field-label">日期</span>
+                <input id="fDate" type="date" />
+              </label>
+              <label class="field">
+                <span class="field-label">分类</span>
+                <input id="fTag" type="text" placeholder="随笔" />
+              </label>
+              <label class="field wide">
+                <span class="field-label">摘要（列表里显示的一句话）</span>
+                <input id="fExcerpt" type="text" placeholder="一句话说清这篇写了什么" />
+              </label>
+            </div>
+
+            <div class="body-split">
+              <div class="body-col">
+                <div class="col-head">
+                  <span class="field-label">正文</span>
+                </div>
+                <details class="md-help">
+                  <summary>支持的写作格式</summary>
+                  <div>
+                    空行分段 · <code>## 小标题</code> · <code>### 次小标题</code><br />
+                    <code>&gt; 引用</code> · <code>- 列表</code> · <code>--- 分隔线</code><br />
+                    <code>**加粗**</code> · <code>*斜体*</code> · <code>`代码`</code> · <code>[链接](https://…)</code>
+                  </div>
+                </details>
+                <textarea id="fContent" class="content-area" placeholder="从这里开始写……" spellcheck="false"></textarea>
+              </div>
+
+              <div class="body-col">
+                <div class="col-head">
+                  <span class="field-label">预览</span>
+                  <a class="btn tiny ghost" id="openPostBtn" href="#" target="_blank" rel="noopener">打开正式页 ↗</a>
+                </div>
+                <div class="preview" id="previewBox"></div>
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" id="publishPostBtn" type="button">保存并发布</button>
+              <button class="btn" id="revertPostBtn" type="button">撤销修改</button>
+              <span class="actions-fill"></span>
+              <button class="btn danger" id="deletePostBtn" type="button">删除这篇</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- 站点信息 ---- -->
+    <section class="panel" id="panelSite">
+      <div class="site-card">
+        <h2>站点信息</h2>
+        <p class="hint">标题、作者、联系方式、关于页的文字。留空的项会使用默认值。</p>
+
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">站点名</span>
+            <input id="sName" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">主标题</span>
+            <input id="sTitle" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">高亮的词（主标题里会变成暖橙色）</span>
+            <input id="sAccent" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">作者</span>
+            <input id="sAuthor" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">坐标</span>
+            <input id="sLocation" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">起始年份</span>
+            <input id="sSince" type="text" />
+          </label>
+          <label class="field">
+            <span class="field-label">GitHub 地址</span>
+            <input id="sGithub" type="text" spellcheck="false" />
+          </label>
+          <label class="field">
+            <span class="field-label">邮箱</span>
+            <input id="sEmail" type="text" spellcheck="false" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-label">副标题 / 一句话介绍</span>
+          <textarea id="sTagline" rows="2"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">页脚</span>
+          <input id="sFooter" type="text" />
+        </label>
+
+        <div class="actions">
+          <button class="btn primary" id="publishSiteBtn" type="button">保存并发布</button>
+          <button class="btn" id="revertSiteBtn" type="button">撤销修改</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- 源文件 ---- -->
+    <section class="panel" id="panelRaw">
+      <div class="raw-grid">
+        <div class="raw-col">
+          <div class="raw-head">
+            <code>posts.js</code>
+            <span class="field-label" style="margin:0">文章数据（高级）</span>
+          </div>
+          <textarea id="rawPosts" class="raw-area" spellcheck="false"></textarea>
+        </div>
+        <div class="raw-col">
+          <div class="raw-head">
+            <code>site.js</code>
+            <span class="field-label" style="margin:0">站点配置（高级）</span>
+          </div>
+          <textarea id="rawSite" class="raw-area" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="raw-actions">
+        <button class="btn primary" id="publishRawBtn" type="button">保存并发布</button>
+        <button class="btn" id="revertRawBtn" type="button">重新拉取</button>
+        <span class="actions-fill"></span>
+        <span class="field-label" style="margin:0">上面两个面板就是网站的原始数据文件，改坏了可以在「撤销修改」里恢复。</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

@@ -22,7 +22,8 @@ const MIME = {
 
 const server = http.createServer(function (req, res) {
   const urlPath = decodeURIComponent((req.url || '/').split('?')[0]);
-  let rel = urlPath === '/' ? 'index.html' : urlPath.replace(/^\/+/, '');
+  const pretty = { '/': 'index.html', '/admin': 'admin.html', '/admin/': 'admin.html' };
+  let rel = pretty[urlPath] || urlPath.replace(/^\/+/, '');
   const filePath = path.resolve(ROOT, rel);
 
   // 防止 ../ 穿越到项目目录之外

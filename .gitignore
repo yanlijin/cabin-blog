@@ -24,5 +24,11 @@ _*.json
 # 依赖（这个项目没有依赖，防止以后误传）
 node_modules/
 
+# 写作台自测产生的临时文件
+.test/out/
+.test/.chrome/
+.test/*.log
+.test/*.err
+
 # 日志
 *.log

@@ -48,7 +48,41 @@ netlify deploy --prod --dir .
 
 ## 换成你自己的内容
 
-### 1. 改名 / 作者 / 联系方式
+### 最快的方式：用浏览器里的写作台（推荐）
+
+打开 **<https://yanblogg.netlify.app/admin>**，粘贴一个 GitHub 令牌，就能在网页里直接改文章、改站点信息，点「保存并发布」，一分钟内网站上就更新了。**不需要装任何东西，也不需要在电脑上留任何文件。**
+
+第一次用要生成一次令牌（只要 30 秒，以后就不用再弄了）：
+
+1. 打开 <https://github.com/settings/tokens/new?scopes=public_repo&description=cabin-blog>
+2. **Note** 随便写（比如 `cabin-blog`），**Expiration** 建议选 90 天或 No expiration
+3. 勾选 **`public_repo`**（在 `repo` 那一组下面）
+4. 拉到最底点 **Generate token**，复制那一串 `ghp_` 开头的字符（**只显示这一次**，关掉就看不到了）
+5. 回到 `/admin` 页面粘贴进去，勾上「记住本机」，点进入
+
+> 令牌就等于你账号的钥匙，只粘在自己电脑上，别发给别人、别贴到聊天群里。它只存在你浏览器的 localStorage 里，不会上传到任何服务器；写作台直接把改动提交到你的 GitHub 仓库。
+>
+> 换了电脑或清了浏览器数据，重新粘一次就行。
+
+写作台能做的事：
+
+| 标签页 | 能干什么 |
+| --- | --- |
+| **文章** | 新建 / 编辑 / 删除文章，左边写右边实时预览，改动自动存本地草稿（关掉页面也不丢） |
+| **站点信息** | 改站点名、首页大标题、作者、GitHub、邮箱、页脚这些 —— 对应 `site.js` |
+| **源文件** | 直接编辑 `posts.js` / `site.js` 原文，写坏了会拦住不让你发布 |
+
+快捷键 `Ctrl+S`（Mac 上 `Cmd+S`）＝ 保存并发布当前标签页。
+
+改完的样子：
+
+- 网站地址：<https://yanblogg.netlify.app/>
+- 写作台：<https://yanblogg.netlify.app/admin>
+- 仓库：<https://github.com/yanlijin/cabin-blog>
+
+### 或者：直接改文件（想自己折腾时）
+
+#### 1. 改名 / 作者 / 联系方式
 
 编辑 `site.js`，所有文案集中在这一个文件：
 
@@ -66,7 +100,7 @@ window.SITE = {
 };
 ```
 
-### 2. 写文章
+#### 2. 写文章
 
 编辑 `posts.js`，复制一个块改内容即可：
 
@@ -95,7 +129,7 @@ window.SITE = {
 | `[文字](https://…)` | 链接 |
 | `---` | 分隔线 |
 
-### 3. 换背景
+#### 3. 换背景
 
 - `bg.jpg` —— 桌面静态背景（1600×900，加载时的占位图）
 - `bg-mobile.jpg` —— 手机静态背景（760×1200）
@@ -123,6 +157,7 @@ copy ..\cabin-in-the-woods\cabin-in-the-woods.html scene.html
 | `site.js` | 站点信息 / 关于页文案 |
 | `posts.js` | 文章数据 |
 | `app.js` | 路由、列表渲染、极简 Markdown |
+| `admin.html` / `admin.css` / `admin.js` | 浏览器里的写作台（`/admin`） |
 | `scene.html` | 3D 林中小屋背景 |
 | `bg.jpg` / `bg-mobile.jpg` / `og.jpg` | 静态背景与分享图 |
 | `netlify.toml` | Netlify 部署配置 |
@@ -138,3 +173,9 @@ copy ..\cabin-in-the-woods\cabin-in-the-woods.html scene.html
 
 **想加 RSS / 评论 / 统计？**
 这个站是纯静态的，RSS 可以自己加一个 `feed.xml`；评论可以用 Giscus（基于 GitHub Discussions）；统计可以用 Netlify Analytics 或 Umami。
+
+**写作台打不开 / 一直提示令牌无效？**
+令牌可能过期了（GitHub 默认有有效期），重新生成一个粘进去。如果提示「找不到仓库或没有权限」，检查生成令牌时有没有勾 `public_repo`。
+
+**写作台里改了但网站上没变？**
+写作台的改动是提交到 GitHub，Netlify 收到 push 后自动重新部署，一般 30 秒到 1 分钟。可以在 <https://app.netlify.com/sites/yanblogg/deploys> 看部署进度，显示 Published 就生效了。

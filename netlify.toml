@@ -12,6 +12,19 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "SAMEORIGIN"
 
+# 写作台：/admin 直接映射到 admin.html（不依赖 Netlify 的 Pretty URLs 开关）
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+  force = false
+
+[[redirects]]
+  from = "/admin/"
+  to = "/admin.html"
+  status = 200
+  force = false
+
 # 3D 场景体积较大，给一小时缓存
 [[headers]]
   for = "/scene.html"
