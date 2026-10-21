@@ -4,5 +4,6 @@
 //  - title 是照片标题，date 用 YYYY-MM-DD，相册按日期从新到旧排序
 // ============================================================
 window.PHOTOS = [
-  { file: "photos/photo-1792494393013-ffbr.jpg", title: "OIP-C", date: "2026-10-20" }
+  { file: "photos/photo-1792494393013-ffbr.jpg", title: "OIP-C", date: "2026-10-20" },
+  { file: "photos/photo-1792545653182-f9dq.jpg", title: "微信图片_20261021092002_105_9", date: "2026-10-21" }
 ];
