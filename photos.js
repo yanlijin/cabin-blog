@@ -7,5 +7,9 @@ window.PHOTOS = [
   { file: "photos/photo-1792494393013-ffbr.jpg", title: "OIP-C", date: "2026-10-20" },
   { file: "photos/photo-1792545653182-f9dq.jpg", title: "微信图片_20261021092002_105_9", date: "2026-10-21" },
   { file: "photos/photo-1792545675236-sniv.jpg", title: "微信图片_20261021091841_102_9", date: "2026-10-21" },
-  { file: "photos/photo-1792545682470-fh2c.jpg", title: "微信图片_20261021091917_103_9", date: "2026-10-21" }
+  { file: "photos/photo-1792545682470-fh2c.jpg", title: "微信图片_20261021091917_103_9", date: "2026-10-21" },
+  { file: "photos/photo-1792545696296-rmle.jpg", title: "微信图片_20261021091832_100_9", date: "2026-10-21" },
+  { file: "photos/photo-1792545698489-8q7r.jpg", title: "微信图片_20261021091840_101_9", date: "2026-10-21" },
+  { file: "photos/photo-1792545700201-a1bm.jpg", title: "微信图片_20261021092001_104_9", date: "2026-10-21" },
+  { file: "photos/photo-1792545702431-uhrj.jpg", title: "微信图片_20261021092002_105_9", date: "2026-10-21" }
 ];
