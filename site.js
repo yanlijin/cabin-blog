@@ -15,7 +15,7 @@ email: "yanlijin@users.noreply.github.com",
 footer: "用 three.js 搭了一座小屋，住在里面写字。",
 about: {
   intro: [
-      "你好，我是林间。白天写代码，晚上写字，偶尔上山。",
+      "你好，我是言间。白天写代码，晚上写字，偶尔上山。",
       "这个博客是我给自己留的一间小屋：不追热点，不赶更新，只把值得留下的想法慢慢放进来。"
   ],
   sections: [
