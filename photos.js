@@ -11,5 +11,8 @@ window.PHOTOS = [
   { file: "photos/photo-1792545696296-rmle.jpg", title: "微信图片_20261021091832_100_9", date: "2026-10-21" },
   { file: "photos/photo-1792545698489-8q7r.jpg", title: "微信图片_20261021091840_101_9", date: "2026-10-21" },
   { file: "photos/photo-1792545700201-a1bm.jpg", title: "微信图片_20261021092001_104_9", date: "2026-10-21" },
-  { file: "photos/photo-1792545702431-uhrj.jpg", title: "微信图片_20261021092002_105_9", date: "2026-10-21" }
+  { file: "photos/photo-1792545702431-uhrj.jpg", title: "微信图片_20261021092002_105_9", date: "2026-10-21" },
+  { file: "photos/photo-1792655647633-8lp2.jpg", title: "9190c2840fd677388d67667ae9a8bab6", date: "2026-10-22" },
+  { file: "photos/photo-1792655650045-kjl1.jpg", title: "a5595367abcbae490b823cf98f12111e", date: "2026-10-22" },
+  { file: "photos/photo-1792655652468-h9km.jpg", title: "微信图片_20261021091823_99_9", date: "2026-10-22" }
 ];
